@@ -31,8 +31,43 @@ Item {
     }
 
     PlasmaCore.DataSource {
-        id: dataSource
-        engine: 'systemmonitor'
+		id: netSource
+		engine: "executable"
+		connectedSources: []
+		onNewData: (sourceName, data) => {
+            var exitCode = data['exit code']
+            var exitStatus = data['exit status']
+            var stdout = data['stdout']
+            var stderr = data['stderr']
+            exited(exitCode, exitStatus, stdout, stderr)
+            disconnectSource(sourceName)
+        }
+		function sources() {
+			connectSource('ls -1 /sys/class/net')
+		}
+        signal exited(int exitCode, int exitStatus, string stdout, string stderr)
+	}
+
+    Connections {
+        target: netSource
+        onExited: {
+            var interfaces = stdout.trim().split('\n')
+    
+            sources_loop:
+            for (var i of interfaces) {
+                if (i === 'lo') {
+                    continue
+                }
+                
+                for (var j=0; j<interfacesWhitelist.model.count; j++) {
+                    if (interfacesWhitelist.model.get(j).name === i) {
+                        continue sources_loop
+                    }
+                }
+
+                interfacesWhitelist.model.append({name: i, shown: false})
+            }
+        }
     }
 
     ListModel {
@@ -126,25 +161,6 @@ Item {
             interfacesWhitelist.model.append({name: plasmoid.configuration.interfacesWhitelist[i], shown: true})
         }
 
-        sources_loop:
-        for (var i in dataSource.sources) {
-            var source = dataSource.sources[i]
-
-            if (source.indexOf('network/interfaces/lo/') !== -1) {
-                continue
-            }
-
-            var match = source.match(/^network\/interfaces\/(\w+)\/(receiver|transmitter)\/data$/)
-
-            if (match) {
-                for (var i=0; i<interfacesWhitelist.model.count; i++) {
-                    if (interfacesWhitelist.model.get(i).name == match[1]) {
-                        continue sources_loop
-                    }
-                }
-
-                interfacesWhitelist.model.append({name: match[1], shown: false})
-            }
-        }
+        netSource.sources()
     }
 }

@@ -46,83 +46,86 @@ Item {
 
     Component.onCompleted: {
         // trigger adding all sources already available
-        for (var i in dataSource.sources) {
-            dataSource.sourceAdded(dataSource.sources[i]);
+        netSource.fetchSources()
+    }
+
+    Connections {
+        target: netSource
+        onExited: {
+            var interfaces = stdout.trim().split('\n')
+            for (var netInt of interfaces) {
+                if(netInt === 'lo' || speedData[netInt] !== undefined) {
+                    continue
+                }
+
+                trafficSource.sources(netInt)
+
+                console.log('Network interface added: ', netInt)
+            }
         }
     }
 
     PlasmaCore.DataSource {
-        id: dataSource
-        engine: 'systemmonitor'
+        id: netSource
+        engine: 'executable'
         interval: updateInterval * 1000
-
-        onSourceAdded: {
-            if (source.indexOf('network/interfaces/lo/') !== -1) {
-                return;
-            }
-
-            var match = source.match(/^network\/interfaces\/(\w+)\/(receiver|transmitter)\/data(Total)?$/)
-
-            if (match) {
-                connectSource(source)
-
-                if (speedData[match[1]] === undefined) {
-                    console.log('Network interface added: ' + match[1])
-                }
-            }
+        onNewData: (sourceName, data) => {
+            var exitCode = data['exit code']
+            var exitStatus = data['exit status']
+            var stdout = data['stdout']
+            var stderr = data['stderr']
+            exited(exitCode, exitStatus, stdout, stderr)
         }
-
-        onSourceRemoved: {
-            var match = source.match(/^network\/interfaces\/(\w+)\/(receiver|transmitter)\/data(Total)?$/)
-
-            if (match) {
-                disconnectSource(source);
-
-                if (speedData[match[1]] !== undefined) {
-                    delete speedData[match[1]]
-                    console.log('Network interface removed: ' + source[1])
-                }
-            }
+        function fetchSources() {
+            connectSource('ls -1 /sys/class/net')
         }
+        signal exited(int exitCode, int exitStatus, string stdout, string stderr)
+    }
 
-        onNewData: {
-            if (data.value === undefined) {
+    PlasmaCore.DataSource {
+        id: trafficSource
+        engine: 'executable'
+        interval: updateInterval * 1000
+        onNewData: (sourceName, data) => {
+            var exitCode = data['exit code']
+            var exitStatus = data['exit status']
+            var stdout = data['stdout']
+            var stderr = data['stderr']
+
+            // [0] = upload, [1] = download
+            var bytes = stdout.trim().split('\n').map(val => parseFloat(val) / 1024)
+
+            var match = sourceName.match(/^cat \/sys\/class\/net\/(.+?)\/statistics\/.*/)
+            
+            // Unlikely, but just in case
+            if (match === null) {
                 return
             }
 
-            var match = sourceName.match(/^network\/interfaces\/(\w+)\/(receiver|transmitter)\/data(Total)?$/)
+            var interfaceId = match[1]
 
-            if (speedData[match[1]] === undefined) {
-                speedData[match[1]] = {down: 0, up: 0, downTotal: 0, upTotal: 0}
+            if (typeof speedData[interfaceId] === 'undefined') {
+                speedData[interfaceId] = {down: 0, up: 0, downTotal: 0, upTotal: 0}
             }
 
             var d = speedData
-            var changed = false
-            var value = parseFloat(data.value)
+            
+            // Download rate values
+            d[interfaceId].down = (bytes[1] - d[interfaceId].downTotal)
+            d[interfaceId].downTotal = bytes[1]
+            
+            // Upload rate values
+            d[interfaceId].up = (bytes[0] - d[interfaceId].upTotal)
+            d[interfaceId].upTotal = bytes[0]
+            
+            speedData = d
+            
 
-            if (match[3] === 'Total') {
-                if (match[2] === 'receiver'    && d[match[1]].downTotal != value) {
-                    d[match[1]].downTotal = value
-                    changed = true
-                }
-                if (match[2] === 'transmitter' && d[match[1]].upTotal != value) {
-                    d[match[1]].upTotal = value
-                    changed = true
-                }
-            } else {
-                if (match[2] === 'receiver'    && d[match[1]].down != value) {
-                    d[match[1]].down = value
-                    changed = true
-                }
-                if (match[2] === 'transmitter' && d[match[1]].up != value) {
-                    d[match[1]].up = value
-                    changed = true
-                }
-            }
-
-            if (changed) {
-                speedData = d
-            }
+            exited(exitCode, exitStatus, stdout, stderr)
         }
+        function sources(i) {
+            connectSource(`cat /sys/class/net/${i}/statistics/tx_bytes /sys/class/net/${i}/statistics/rx_bytes`)
+        }
+        signal exited(int exitCode, int exitStatus, string stdout, string stderr)
     }
 }
