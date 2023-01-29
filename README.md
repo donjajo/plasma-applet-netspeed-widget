@@ -20,7 +20,7 @@ Optional dependencies:
 
 ### From openDesktop.org
 
-1. Go to [https://www.opendesktop.org/p/998895/](https://www.opendesktop.org/p/998895/).
+1. Go to [https://store.kde.org/p/1977775](https://store.kde.org/p/1977775).
 2. Click on the `Files` tab.
 3. Click the `Install` button.
 4. ~~Make sure the package `ksysguard` is installed.~~
@@ -30,7 +30,7 @@ Optional dependencies:
 1. If your widgets are locked, right-click the desktop and select `Unlock Widgets`.
 2. Right-click the desktop and select `Add Widgets...`.
 3. Click the `Get new widgets` button in the Widget Explorer that just opened.
-4. Type `Netspeed Widget` into the search field.
+4. Type `Netspeed Widget [Sysfs]` into the search field.
 5. Click the `Install` button next to "Netspeed Widget".
 6. ~~Make sure the package `ksysguard` is installed.~~
 
