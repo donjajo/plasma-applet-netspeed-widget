@@ -89,11 +89,14 @@ Item {
         onNewData: (sourceName, data) => {
             var exitCode = data['exit code']
             var exitStatus = data['exit status']
-            var stdout = data['stdout']
+            var stdout = data['stdout'].trim()
             var stderr = data['stderr']
+            var bytes = [0,0]
 
-            // [0] = upload, [1] = download
-            var bytes = stdout.trim().split('\n').map(val => parseFloat(val) / 1024)
+            if (stdout !== '') {
+                // [0] = upload, [1] = download
+                bytes = stdout.trim().split('\n').map(val => parseFloat(val) / 1024)
+            }
 
             var match = sourceName.match(/^cat \/sys\/class\/net\/(.+?)\/statistics\/.*/)
             
