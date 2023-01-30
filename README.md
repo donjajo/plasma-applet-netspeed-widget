@@ -37,7 +37,7 @@ Optional dependencies:
 ### From source
 
 ```bash
-git clone https://github.com/dfaust/plasma-applet-netspeed-widget
+git clone https://github.com/donjajo/plasma-applet-netspeed-widget
 cd plasma-applet-netspeed-widget
 mkdir build
 cd build
